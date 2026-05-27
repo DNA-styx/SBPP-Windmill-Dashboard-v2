@@ -1,0 +1,235 @@
+/*
+ * SBPP Windmill Dashboard v2 — windmill-base.css
+ *
+ * Theme-specific component styles shared across all colour variants.
+ * Uses CSS custom properties from theme.css and the active colour
+ * variant (windmill-purple.css etc.).
+ *
+ * Load order in header.tpl:
+ *   1. theme.css            — base design system
+ *   2. windmill-base.css    — this file
+ *   3. windmill-*.css       — active colour variant
+ *
+ * Contents:
+ *   - .windmill-title-bar   — rounded inset brand-colour page heading bar
+ *   - .links-dropdown       — external links <details> dropdown
+ */
+
+/* ---- Page title bar -------------------------------------------- */
+/*
+ * Brand-coloured page heading bar, rendered in title.tpl between
+ * the topbar and <main class="page">.
+ * Width matches the page content wrapper (max-width:1400px, auto margins,
+ * with 1.5rem inset on each side to align with content padding).
+ */
+.windmill-title-bar {
+    display: flex;
+    align-items: center;
+    width: calc(100% - 3rem);
+    max-width: calc(1400px - 3rem);
+    margin: 1rem auto 0;
+    padding: 1rem 1.5rem;
+    background: var(--brand-600);
+    color: #fff;
+    font-size: var(--fs-xl);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    border-radius: var(--radius-md);
+}
+
+/* ---- Topbar ---------------------------------------------------- */
+/*
+ * Solid background matching the sidebar so they read as one surface.
+ * Remove the default semi-transparent blur which creates separation.
+ */
+.topbar {
+    position: sticky;
+    top: 0;
+    background: var(--bg-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+html.dark .topbar {
+    background: var(--bg-surface);
+}
+
+/* ---- Card header + footer -------------------------------------- */
+/*
+ * All headers locked to 57px — matching row height.
+ * Reduced padding (0.75rem vs theme.css default 1rem) brings
+ * headers with a "View all" button down from 65px to 57px.
+ * min-height keeps button-free headers at 57px via content + padding.
+ *
+ * Footer is half the header height (28px) — a slim closing edge
+ * that balances the card without competing with the header.
+ */
+.card__header {
+    min-height: 57px;
+    padding: 0.75rem 1.25rem;
+    box-sizing: border-box;
+}
+
+.windmill-card-footer {
+    height: 28px;
+    box-sizing: border-box;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+/* ---- Compact table rows ---------------------------------------- */
+/*
+ * .windmill-row — standard row height used across all pages.
+ * min-height: 57px matches the tallest row type (ban/comm rows
+ * with two lines of text) so all row types render at equal height.
+ *
+ * .windmill-row svg — base icon size proportional to row height.
+ * .windmill-row__icon-lg — larger icons for hand/comms type icons
+ *   that sit as the primary visual indicator of a row's category.
+ */
+.windmill-row {
+    padding: 0.5rem 1rem;
+    min-height: 57px;
+    box-sizing: border-box;
+}
+
+.windmill-row svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.windmill-row__icon-lg {
+    width: 20px !important;
+    height: 20px !important;
+    flex-shrink: 0;
+}
+
+/* ---- Dashboard connect button ---------------------------------- */
+/* Hidden on mobile, visible from 768px up — matches servers page */
+.windmill-connect-btn {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .windmill-connect-btn {
+        display: inline-flex;
+    }
+}
+
+/* ---- Sidebar brand --------------------------------------------- */
+.sidebar__brand {
+    border-bottom: none;
+}
+
+/* ---- Sidebar --------------------------------------------------- */
+.sidebar {
+    border-right: none;
+}
+/*
+ * Override theme.css defaults for active nav links, filter chips,
+ * and pressed secondary buttons. These rules use var(--brand-*)
+ * tokens so they automatically reflect whichever colour variant
+ * (windmill-purple.css etc.) is loaded after this file.
+ *
+ * Light mode active nav: subtle gray shading (brand colour would
+ * compete with the purple title bar).
+ * Dark mode: same treatment for consistency.
+ */
+.sidebar__link[aria-current="page"] {
+    background: var(--bg-muted);
+    color: var(--text);
+    font-weight: 600;
+}
+
+html.dark .sidebar__link[aria-current="page"] {
+    background: var(--bg-muted);
+    color: var(--text);
+    font-weight: 600;
+}
+
+/* Filter chips (banlist / commslist active state) */
+.chip[aria-pressed="true"],
+.chip[data-active="true"] {
+    background: var(--brand-600);
+    color: white;
+    border-color: var(--brand-600);
+}
+
+html.dark .chip[aria-pressed="true"],
+html.dark .chip[data-active="true"] {
+    background: var(--brand-700);
+    color: white;
+    border-color: var(--brand-700);
+}
+
+/* Pressed secondary buttons (Hide/Show inactive toggles) */
+.btn--secondary[aria-pressed="true"] {
+    --btn-bg: var(--brand-600);
+    --btn-color: white;
+    --btn-border: var(--brand-600);
+    --btn-bg-hover: var(--brand-700);
+}
+
+html.dark .btn--secondary[aria-pressed="true"] {
+    --btn-bg: var(--brand-700);
+    --btn-color: white;
+    --btn-border: var(--brand-700);
+    --btn-bg-hover: var(--brand-600);
+}
+/*
+ * External links dropdown rendered as a <details>/<summary> element.
+ * Closes on outside click via inline script in title.tpl.
+ * Positioned relative so the dropdown menu sits below the summary.
+ */
+.links-dropdown {
+    position: relative;
+}
+
+/* Remove the native <details> marker/triangle */
+.links-dropdown > summary {
+    list-style: none;
+    cursor: pointer;
+}
+.links-dropdown > summary::-webkit-details-marker {
+    display: none;
+}
+
+.links-dropdown__menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.25rem);
+    z-index: 50;
+    min-width: 12rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+    padding: 0.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.links-dropdown__item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.625rem;
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    color: var(--text);
+    text-decoration: none;
+    transition: background-color .15s;
+    white-space: nowrap;
+}
+
+.links-dropdown__item:hover {
+    background: var(--bg-muted);
+}
+
+/* Hide menu when details is closed */
+.links-dropdown:not([open]) .links-dropdown__menu {
+    display: none;
+}

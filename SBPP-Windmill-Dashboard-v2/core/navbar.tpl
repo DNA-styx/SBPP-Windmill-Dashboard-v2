@@ -1,69 +1,76 @@
 {*
-    SourceBans++ 2026 — chrome / navbar.tpl
+    SBPP Windmill Dashboard v2 — chrome / core/navbar.tpl
 
-    Sidebar nav. Pair: web/pages/core/navbar.php (assigns $navbar,
-    $adminbar, $isAdmin, $login, $username — same contract as
-    web/themes/default/core/navbar.tpl). The $navbar / $adminbar
-    arrays come from navbar.php unchanged; this template just reskins
-    the legacy <div id="tabs"> markup as the new collapsible sidebar.
+    Renders the sticky sidebar <aside> and opens <div class="main">.
+    <div class="main"> is closed in core/footer.tpl.
 
-    Endpoint→icon mapping is inline because the chrome PHP files
-    intentionally don't grow new fields in this PR (variable contract
-    is locked per A2; B/C tickets touch their own templates). The
-    {if/elseif} chain keeps the data flow PHP→template untouched.
+    Variable contract (assigned by web/pages/core/navbar.php):
+        $navbar    — array of public nav items with keys:
+                     endpoint, title, description, state ('active'|'')
+        $adminbar  — array of admin nav items with keys:
+                     endpoint, title, state ('active'|'')
+        $isAdmin   — bool, true if current user has any admin access
+        $login     — bool, true if user is logged in
+        $username  — string, current admin username (empty if not logged in)
 
-    Interactive surfaces carry data-testid + ARIA per the issue's
-    "Testability hooks" rule. The <nav> wrapper carries
-    role="navigation" + aria-label; each link gets data-testid
-    "nav-<endpoint>" and aria-current="page" when active.
+    Also in scope from core/header.php and init.php:
+        $logo      — logo path relative to theme URL (default: images/favicon.svg)
+        $theme_url — absolute URL to this theme directory
+
+    Endpoint → Lucide icon mapping is inline (the navbar.php variable
+    contract does not include an icon field; adding one would require
+    a core change outside the scope of a theme fork).
+
+    Mobile sidebar: the hamburger button lives in core/title.tpl
+    (data-mobile-menu). theme.js toggles data-mobile-open on this
+    <aside> in response. No Alpine.js or custom JS required here.
+
+    Removed from v1.8.x:
+        - Duplicate <body> open tag (header.tpl owns it)
+        - Alpine.js directives (@click, x-if, x-show, :class, x-data)
+        - FontAwesome icons (fa fa-caret-right, fas fa-search)
+        - Top bar search form (replaced by Ctrl+K command palette)
+        - Profile dropdown menu (replaced by account/logout links below)
+        - Theme toggle button (data-theme-toggle handled by theme.js)
+        - Mobile menu overlay driven by Alpine isSideMenuOpen
 *}
 <aside class="sidebar" id="sidebar" data-mobile-open="false">
-    {* #1271 — `data-testid="sidebar-brand"` is the canonical hook for
-       the user-visible canary in the sidebar-sticky regression test
-       (`web/tests/e2e/specs/responsive/sidebar-sticky.spec.ts`). The
-       brand is the first element to scroll off the top if sticky
-       drifts up by `footerHeight`, so anchoring the spec on this
-       testid (rather than the `.sidebar__brand` class chain) keeps
-       the assertion compliant with AGENTS.md's "Selectors must use
-       testability hooks; never CSS class chains as the primary
-       selector" rule.
 
-       #1235 — the brand mark renders the operator-configurable
-       `template.logo` setting (Admin → Settings → General → Logo
-       path), resolved relative to the active theme's directory.
-       `$logo` is assigned by `core/header.php` (which runs before
-       this template per page-builder.php's lifecycle:
-       header → navbar → title → page → footer), so it's always in
-       scope here. Default ships as `images/favicon.svg` — the
-       canonical SourceBans++ shield-with-cross mark from the
-       favicon set; admins can repoint at any theme-relative path
-       (PNG / SVG / etc). The setting was vestigial in v2.0 until
-       this PR wired it back in; sees `web/updater/data/809.php`
-       for the upgrade-path migration that converts the v1.x
-       `logos/sb-large.png` default forward. *}
-    <div class="sidebar__brand" data-testid="sidebar-brand">
-        <img class="sidebar__brand-mark" src="{$theme_url}/{$logo}" alt="">
+    {*
+        Brand row — logo + site name.
+        $logo is the operator-configurable logo path set in
+        Admin → Settings → General → Logo path, resolved relative
+        to this theme's directory. Defaults to images/favicon.svg.
+        data-testid="sidebar-brand" is used by the sidebar-sticky
+        regression spec to confirm the brand is visible at scroll bottom.
+    *}
+    <a class="sidebar__brand" href="index.php?p=home" data-testid="sidebar-brand">
+        <img class="sidebar__brand-mark" src="{$theme_url}/{$logo}" alt="Site logo">
         <div>
             <div class="font-semibold text-sm">SourceBans++</div>
+            <div style="font-size:0.6rem;color:var(--text-faint)">Windmill Dashboard</div>
         </div>
-    </div>
+    </a>
+
     <nav class="sidebar__nav" role="navigation" aria-label="Primary">
+
+        {* ---- Public pages ---- *}
         <div class="sidebar__section">
-            <div class="sidebar__section-label">Public</div>
             {foreach from=$navbar item=nav}
                 {if $nav.endpoint != 'admin'}
                     <a class="sidebar__link"
                        href="index.php?p={$nav.endpoint}"
                        data-testid="nav-{$nav.endpoint}"
-                       title="{$nav.description}"
+                       title="{if $nav.endpoint == 'home'}This page shows an overview of the bans and servers.{elseif $nav.endpoint == 'servers'}All the servers and their status can be viewed here.{else}{$nav.description}{/if}"
                        {if $nav.state == 'active'}aria-current="page"{/if}>
-                        <i data-lucide="{if $nav.endpoint == 'home'}layout-dashboard{elseif $nav.endpoint == 'banlist'}ban{elseif $nav.endpoint == 'commslist'}mic-off{elseif $nav.endpoint == 'submit'}flag{elseif $nav.endpoint == 'protest'}megaphone{elseif $nav.endpoint == 'servers'}server{else}circle{/if}"></i>
+                        <i data-lucide="{if $nav.endpoint == 'home'}layout-dashboard{elseif $nav.endpoint == 'banlist'}ban{elseif $nav.endpoint == 'commslist'}mic-off{elseif $nav.endpoint == 'submit'}flag{elseif $nav.endpoint == 'protest'}megaphone{elseif $nav.endpoint == 'servers'}server{else}circle{/if}" aria-hidden="true"></i>
                         {$nav.title}
                     </a>
                 {/if}
             {/foreach}
         </div>
 
+        {* ---- Admin pages (only shown to admins) ---- *}
         {if $isAdmin}
             <div class="sidebar__section">
                 <div class="sidebar__section-label">Admin</div>
@@ -74,7 +81,7 @@
                            data-testid="nav-{$nav.endpoint}"
                            title="{$nav.description}"
                            {if $nav.state == 'active'}aria-current="page"{/if}>
-                            <i data-lucide="shield"></i>
+                            <i data-lucide="shield" aria-hidden="true"></i>
                             {$nav.title}
                         </a>
                     {/if}
@@ -84,33 +91,46 @@
                        href="index.php?p=admin&c={$admin.endpoint}"
                        data-testid="nav-admin-{$admin.endpoint}"
                        {if $admin.state == 'active'}aria-current="page"{/if}>
-                        <i data-lucide="{if $admin.endpoint == 'admins'}users{elseif $admin.endpoint == 'servers'}server{elseif $admin.endpoint == 'bans'}ban{elseif $admin.endpoint == 'comms'}mic-off{elseif $admin.endpoint == 'groups'}shield-check{elseif $admin.endpoint == 'settings'}settings{elseif $admin.endpoint == 'mods'}puzzle{else}circle{/if}"></i>
+                        <i data-lucide="{if $admin.endpoint == 'admins'}users{elseif $admin.endpoint == 'bans'}ban{elseif $admin.endpoint == 'comms'}mic-off{elseif $admin.endpoint == 'servers'}server{elseif $admin.endpoint == 'groups'}shield-check{elseif $admin.endpoint == 'settings'}settings{elseif $admin.endpoint == 'mods'}puzzle{else}circle{/if}" aria-hidden="true"></i>
                         {$admin.title}
                     </a>
                 {/foreach}
             </div>
         {/if}
+
     </nav>
 
-    <div style="border-top: 1px solid var(--border); padding: 0.5rem; display: flex; flex-direction: column; gap: 0.125rem;">
+    {*
+        Account section — pinned to the bottom of the sidebar.
+        Shows username + logout when logged in, login link otherwise.
+        The separator border mirrors the section-label treatment above.
+    *}
+    <div style="border-top:1px solid var(--border);padding:0.5rem;display:flex;flex-direction:column;gap:0.125rem;">
         {if $login}
             <a class="sidebar__link"
                href="index.php?p=account"
                data-testid="nav-account">
-                <i data-lucide="user"></i>
-                <div class="truncate" style="flex:1;min-width:0">{$username}</div>
+                <i data-lucide="user" aria-hidden="true"></i>
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{$username}</span>
             </a>
             <a class="sidebar__link"
                href="index.php?p=logout"
                data-testid="nav-logout">
-                <i data-lucide="log-out"></i> Logout
+                <i data-lucide="log-out" aria-hidden="true"></i>
+                Logout
             </a>
         {else}
             <a class="sidebar__link"
                href="index.php?p=login"
                data-testid="nav-login">
-                <i data-lucide="log-in"></i> Login
+                <i data-lucide="log-in" aria-hidden="true"></i>
+                Login
             </a>
         {/if}
+
     </div>
+
 </aside>
+
+{* Opens the main content column — closed by core/footer.tpl *}
+<div class="main">
