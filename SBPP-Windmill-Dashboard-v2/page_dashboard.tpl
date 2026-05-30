@@ -52,41 +52,41 @@
     {* -- Stat cards: Windmill v1-style coloured circular icon badges --- *}
     <div class="grid gap-4" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
 
-        <div class="card" data-testid="dashboard-stat-servers">
+        <a class="card" href="?p=servers" style="text-decoration:none;color:inherit" data-testid="dashboard-stat-servers">
             <div class="card__body flex items-center gap-4">
                 <div style="width:3rem;height:3rem;border-radius:50%;background:#10b981;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0">
                     <i data-lucide="server" style="width:1.25rem;height:1.25rem"></i>
                 </div>
                 <div>
-                    <div class="text-xs font-medium text-muted" style="text-transform:uppercase;letter-spacing:0.06em">Total Servers Protected</div>
+                    <div class="text-xs font-medium text-muted" style="text-transform:uppercase;letter-spacing:0.06em">Total Servers</div>
                     <div class="tabular-nums font-semibold" style="font-size:1.25rem">{$total_servers|number_format}</div>
                 </div>
             </div>
-        </div>
+        </a>
 
-        <div class="card" data-testid="dashboard-stat-total-bans">
+        <a class="card" href="?p=banlist" style="text-decoration:none;color:inherit" data-testid="dashboard-stat-total-bans">
             <div class="card__body flex items-center gap-4">
                 <div style="width:3rem;height:3rem;border-radius:50%;background:#f97316;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0">
                     <i data-lucide="ban" style="width:1.25rem;height:1.25rem"></i>
                 </div>
                 <div>
-                    <div class="text-xs font-medium text-muted" style="text-transform:uppercase;letter-spacing:0.06em">Total Players Banned</div>
+                    <div class="text-xs font-medium text-muted" style="text-transform:uppercase;letter-spacing:0.06em">Players Banned</div>
                     <div class="tabular-nums font-semibold" style="font-size:1.25rem">{$total_bans|number_format}</div>
                 </div>
             </div>
-        </div>
+        </a>
 
-        <div class="card" data-testid="dashboard-stat-comm-blocks">
+        <a class="card" href="?p=commslist" style="text-decoration:none;color:inherit" data-testid="dashboard-stat-comm-blocks">
             <div class="card__body flex items-center gap-4">
                 <div style="width:3rem;height:3rem;border-radius:50%;background:#3b82f6;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0">
                     <i data-lucide="mic-off" style="width:1.25rem;height:1.25rem"></i>
                 </div>
                 <div>
-                    <div class="text-xs font-medium text-muted" style="text-transform:uppercase;letter-spacing:0.06em">Total Comms Blocks</div>
+                    <div class="text-xs font-medium text-muted" style="text-transform:uppercase;letter-spacing:0.06em">Comms Blocks</div>
                     <div class="tabular-nums font-semibold" style="font-size:1.25rem">{$total_comms|number_format}</div>
                 </div>
             </div>
-        </div>
+        </a>
 
         <div class="card" data-testid="dashboard-stat-blocked">
             <div class="card__body flex items-center gap-4">
@@ -94,7 +94,7 @@
                     <i data-lucide="hand" style="width:1.25rem;height:1.25rem"></i>
                 </div>
                 <div>
-                    <div class="text-xs font-medium text-muted" style="text-transform:uppercase;letter-spacing:0.06em">Banned Players Blocked</div>
+                    <div class="text-xs font-medium text-muted" style="text-transform:uppercase;letter-spacing:0.06em">Players Blocked</div>
                     <div class="tabular-nums font-semibold" style="font-size:1.25rem">{$total_blocked|number_format}</div>
                 </div>
             </div>
@@ -148,6 +148,7 @@
                    href="{$b.search_link}"
                    data-testid="dashboard-ban-row"
                    data-id="{$b.bid}">
+                    <i data-lucide="ban" style="color:var(--text-muted);flex-shrink:0" class="windmill-row__icon-lg"></i>
                     <div class="flex-1" style="min-width:0">
                         <div class="flex items-center gap-2">
                             <span class="font-medium text-sm truncate">
@@ -354,3 +355,50 @@
 
 {* A2S hydration for server tiles — must be deferred, after DOM is ready *}
 <script src="./scripts/server-tile-hydrate.js" defer></script>
+
+{*
+    Offline connect button handler.
+    After the hydrator sets data-status on each server tile, this script
+    replaces the Connect <a> with a disabled <span> for offline servers.
+    Uses a MutationObserver on data-status so it fires when the hydrator
+    updates the attribute, not just on page load.
+*}
+<script>
+(function () {
+    function updateConnectBtn(tile) {
+        var status = tile.dataset.status;
+        var btn = tile.querySelector('[data-testid="server-connect"]');
+        if (!btn) return;
+
+        if (status === 'offline') {
+            if (btn.tagName === 'A') {
+                var span = document.createElement('span');
+                span.className = btn.className;
+                span.setAttribute('aria-disabled', 'true');
+                span.setAttribute('data-testid', 'server-connect');
+                span.style.cssText = 'margin-left:auto;opacity:0.5;pointer-events:none;cursor:default;flex-shrink:0;min-width:99px;justify-content:center';
+                span.innerHTML = '<i data-lucide="square" style="width:13px;height:13px"></i> Offline';
+                btn.parentNode.replaceChild(span, btn);
+                if (window.lucide) window.lucide.createIcons({ nodes: [span] });
+            }
+        } else if (status === 'online') {
+            if (btn.tagName === 'SPAN') {
+                var a = document.createElement('a');
+                a.className = btn.className;
+                a.setAttribute('data-testid', 'server-connect');
+                a.setAttribute('href', tile.querySelector('[data-testid="server-connect"]').dataset.connectHref || '#');
+                a.style.cssText = btn.style.cssText.replace('opacity:0.5;pointer-events:none;cursor:default', '');
+                a.innerHTML = '<i data-lucide="play" style="width:13px;height:13px"></i> Connect';
+                btn.parentNode.replaceChild(a, btn);
+                if (window.lucide) window.lucide.createIcons({ nodes: [a] });
+            }
+        }
+    }
+
+    document.querySelectorAll('[data-testid="server-tile"]').forEach(function (tile) {
+        new MutationObserver(function () { updateConnectBtn(tile); })
+            .observe(tile, { attributes: true, attributeFilter: ['data-status'] });
+        updateConnectBtn(tile);
+    });
+}());
+</script>
