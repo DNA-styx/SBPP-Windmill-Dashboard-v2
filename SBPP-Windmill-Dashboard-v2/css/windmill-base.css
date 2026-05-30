@@ -122,6 +122,20 @@ html.dark .topbar {
     border-bottom: none;
 }
 
+/* ---- Click-to-copy server address ------------------------------ */
+.windmill-copy-host {
+    cursor: pointer;
+    user-select: none;
+}
+
+.windmill-copy-host:hover {
+    color: var(--brand-600);
+}
+
+.windmill-copy-host[data-copied="true"] {
+    color: #10b981;
+}
+
 /* ---- Sidebar close button (mobile only) ------------------------ */
 /*
  * On mobile: hide the logo link, show the hamburger close button.

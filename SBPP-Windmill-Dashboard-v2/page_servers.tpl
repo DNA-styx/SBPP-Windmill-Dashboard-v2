@@ -27,13 +27,7 @@
 <div class="p-6 space-y-6" style="max-width:1400px;margin:0 auto;width:100%">
 
     <header class="flex items-end justify-between gap-3" style="flex-wrap:wrap">
-        <p class="text-sm text-muted m-0"
-           data-testid="servers-summary"
-           data-total="{$server_list|@count}">
-            {$server_list|@count} configured
-            <span data-online-count>&middot; <span data-online-num>0</span> online</span>
-        </p>
-        {if $can_use_context_menu}
+    {if $can_use_context_menu}
             <p class="servers-rcon-hint text-xs text-muted m-0" aria-hidden="true">
                 <i data-lucide="mouse-pointer-2" style="width:11px;height:11px;vertical-align:-1px"></i>
                 Right-click a player row for moderation actions
@@ -101,7 +95,9 @@
                             {$server.ip}:{$server.port}
                         </div>
                         <div class="text-xs text-muted truncate" style="margin-top:0.125rem">
-                            {if $server.mod}{$server.mod} &middot; {/if}{$server.ip}:{$server.port}
+                            {if $server.mod}{$server.mod} &middot; {/if}<span class="windmill-copy-host"
+                                data-copy="{$server.ip}:{$server.port}"
+                                title="Click to copy">{$server.ip}:{$server.port}</span>
                         </div>
                     </div>
                     <span class="pill pill--offline"
@@ -158,6 +154,7 @@
                     </button>
                     <a class="btn btn--primary btn--sm windmill-connect-btn"
                        data-testid="server-connect"
+                       data-connect-href="steam://connect/{$server.dns}:{$server.port}"
                        href="steam://connect/{$server.dns}:{$server.port}"
                        style="margin-left:auto">
                         <i data-lucide="play" style="width:13px;height:13px"></i>
@@ -198,32 +195,151 @@
 
 </div>
 
-{*
-    Summary rewriter — "X configured · Y online" → "Y of X online".
-    Watches [data-online-num] for changes written by the hydrator.
-*}
-<script>
-(function () {
-    var summary = document.querySelector('[data-testid="servers-summary"]');
-    if (!summary) return;
-    var total = parseInt(summary.dataset.total || '0', 10);
-
-    function rewrite() {
-        var num = document.querySelector('[data-online-num]');
-        var online = num ? parseInt(num.textContent, 10) : 0;
-        summary.textContent = online + ' of ' + total + ' online';
-    }
-
-    var onlineNum = document.querySelector('[data-online-num]');
-    if (onlineNum) {
-        new MutationObserver(rewrite)
-            .observe(onlineNum, { childList: true, characterData: true, subtree: true });
-    }
-    rewrite();
-}());
-</script>
-
 <script src="./scripts/server-tile-hydrate.js" defer></script>
 {if $can_use_context_menu}
 <script src="./scripts/server-context-menu.js" defer></script>
 {/if}
+
+{*
+    Offline state handler.
+    Watches data-status on each tile. When offline:
+      - Replaces Connect <a> with disabled <span> (square/stop icon)
+      - Keeps Players button disabled (hydrator already does this, but
+        we also apply aria-disabled styling so it reads as visually
+        disabled consistently)
+    When online: restores Connect <a> if it was previously replaced.
+*}
+<script>
+(function () {
+    var CONNECT_WIDTH = null;
+
+    function getConnectWidth() {
+        if (CONNECT_WIDTH) return CONNECT_WIDTH;
+        var online = document.querySelector('[data-testid="server-connect"]:not([aria-disabled])');
+        if (online) CONNECT_WIDTH = Math.round(online.getBoundingClientRect().width) + 'px';
+        return CONNECT_WIDTH || 'auto';
+    }
+
+    function updateTile(tile) {
+        var status = tile.dataset.status;
+        var connect = tile.querySelector('[data-testid="server-connect"]');
+        var toggle  = tile.querySelector('[data-testid="server-toggle"]');
+        if (!connect) return;
+
+        if (status === 'offline') {
+            if (connect.tagName === 'A') {
+                var w = getConnectWidth();
+                var span = document.createElement('span');
+                span.className = connect.className;
+                span.setAttribute('aria-disabled', 'true');
+                span.setAttribute('data-testid', 'server-connect');
+                span.style.cssText = 'margin-left:auto;opacity:0.5;pointer-events:none;cursor:default;flex-shrink:0;min-width:' + w + ';justify-content:center';
+                span.innerHTML = '<i data-lucide="square" style="width:13px;height:13px"></i> Offline';
+                connect.parentNode.replaceChild(span, connect);
+                if (window.lucide) window.lucide.createIcons({ nodes: [span] });
+            }
+            if (toggle) {
+                toggle.style.opacity = '0.5';
+                toggle.style.pointerEvents = 'none';
+                toggle.setAttribute('aria-disabled', 'true');
+            }
+        } else if (status === 'online') {
+            if (connect.tagName === 'SPAN') {
+                var href = tile.dataset.connectHref || connect.dataset.connectHref;
+                var a = document.createElement('a');
+                a.className = connect.className;
+                a.setAttribute('data-testid', 'server-connect');
+                a.setAttribute('href', href || '#');
+                a.style.cssText = 'margin-left:auto;flex-shrink:0';
+                a.innerHTML = '<i data-lucide="play" style="width:13px;height:13px"></i> Connect';
+                connect.parentNode.replaceChild(a, connect);
+                if (window.lucide) window.lucide.createIcons({ nodes: [a] });
+            }
+            if (toggle) {
+                toggle.style.opacity = '';
+                toggle.style.pointerEvents = '';
+                toggle.removeAttribute('aria-disabled');
+            }
+        }
+    }
+
+    document.querySelectorAll('[data-testid="server-tile"]').forEach(function (tile) {
+        new MutationObserver(function () { updateTile(tile); })
+            .observe(tile, { attributes: true, attributeFilter: ['data-status'] });
+        updateTile(tile);
+    });
+}());
+</script>
+
+{*
+    Click-to-copy for server address.
+    Document-level delegate on [data-copy] — never use stopPropagation.
+    Falls back to execCommand if clipboard API unavailable.
+    Shows a brief "Copied!" label in place of the address then restores.
+*}
+<script>
+(function () {
+    function copyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text);
+        }
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+        return Promise.resolve();
+    }
+
+    document.addEventListener('click', function (e) {
+        var el = e.target && e.target.closest('[data-copy]');
+        if (!el) return;
+        var text = el.dataset.copy;
+        if (!text) return;
+        copyText(text).then(function () {
+            var prev = el.textContent;
+            el.textContent = 'Copied!';
+            el.dataset.copied = 'true';
+            setTimeout(function () {
+                el.textContent = prev;
+                delete el.dataset.copied;
+            }, 1500);
+        });
+    });
+}());
+</script>
+
+{*
+    Player time formatter.
+    The hydrator writes time_f values like "26:56" (MM:SS) or "1:26:56"
+    (H:MM:SS). This normalises every cell to HH:MM:SS so the score
+    column aligns regardless of session length.
+    Watches each players panel via MutationObserver so it fires
+    after the hydrator inserts rows.
+*}
+<script>
+(function () {
+    function padTime(raw) {
+        if (!raw || typeof raw !== 'string') return raw;
+        var parts = raw.trim().split(':');
+        while (parts.length < 3) parts.unshift('00');
+        return parts.map(function (p) { return p.padStart(2, '0'); }).join(':');
+    }
+
+    function formatPanel(panel) {
+        panel.querySelectorAll('[data-testid="player-time"]').forEach(function (c) {
+            if (!c.dataset.timeFormatted) {
+                c.textContent = padTime(c.textContent);
+                c.dataset.timeFormatted = '1';
+            }
+        });
+    }
+
+    document.querySelectorAll('[data-testid="server-players-panel"]').forEach(function (panel) {
+        new MutationObserver(function () { formatPanel(panel); })
+            .observe(panel, { childList: true, subtree: true });
+    });
+}());
+</script>
