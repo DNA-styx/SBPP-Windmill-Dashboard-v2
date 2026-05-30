@@ -122,6 +122,29 @@ html.dark .topbar {
     border-bottom: none;
 }
 
+/* ---- Sidebar close button (mobile only) ------------------------ */
+/*
+ * On mobile: hide the logo link, show the hamburger close button.
+ * On desktop: show the logo link, hide the hamburger close button.
+ * The sidebar__brand is now a <div> so it doesn't navigate on tap.
+ */
+.sidebar-close-btn {
+    display: inline-flex;
+}
+
+.sidebar__brand-home {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .sidebar-close-btn {
+        display: none;
+    }
+    .sidebar__brand-home {
+        display: flex;
+    }
+}
+
 /* ---- Sidebar --------------------------------------------------- */
 .sidebar {
     border-right: none;

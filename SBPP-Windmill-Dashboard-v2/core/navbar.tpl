@@ -44,13 +44,29 @@
         data-testid="sidebar-brand" is used by the sidebar-sticky
         regression spec to confirm the brand is visible at scroll bottom.
     *}
-    <a class="sidebar__brand" href="index.php?p=home" data-testid="sidebar-brand">
-        <img class="sidebar__brand-mark" src="{$theme_url}/{$logo}" alt="Site logo">
+    <div class="sidebar__brand" data-testid="sidebar-brand">
+        {*
+            On desktop: logo links to home.
+            On mobile: logo is hidden, hamburger button takes its place.
+            The hamburger uses data-mobile-menu so theme.js closes the
+            sidebar on click — same attribute as the topbar hamburger.
+        *}
+        <a href="index.php?p=home" class="sidebar__brand-home" aria-label="Go to dashboard">
+            <img class="sidebar__brand-mark" src="{$theme_url}/{$logo}" alt="Site logo">
+        </a>
+        <button type="button"
+                class="btn btn--ghost btn--icon sidebar-close-btn"
+                data-mobile-menu
+                data-testid="sidebar-close"
+                aria-label="Close navigation menu"
+                aria-controls="sidebar">
+            <i data-lucide="menu" aria-hidden="true"></i>
+        </button>
         <div>
             <div class="font-semibold text-sm">SourceBans++</div>
             <div style="font-size:0.6rem;color:var(--text-faint)">Windmill Dashboard</div>
         </div>
-    </a>
+    </div>
 
     <nav class="sidebar__nav" role="navigation" aria-label="Primary">
 
