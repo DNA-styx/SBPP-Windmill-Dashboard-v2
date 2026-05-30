@@ -74,13 +74,6 @@
     <input type="hidden" name="advType" value="" data-search-type>
     <input type="hidden" name="advSearch" value="" data-search-value>
 
-    <div class="card__header">
-        <div>
-            <h3>Advanced search</h3>
-            <p>Each row is its own search criterion &mdash; the &laquo;Search&raquo; button on the right submits using just that row's value.</p>
-        </div>
-    </div>
-
     <div class="card__body space-y-3">
         <div class="grid gap-3" style="grid-template-columns:10rem 1fr auto;align-items:end">
             <label class="label" for="search-bans-name" style="grid-column:1;align-self:end">Nickname</label>
