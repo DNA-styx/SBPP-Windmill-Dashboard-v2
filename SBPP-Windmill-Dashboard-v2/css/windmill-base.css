@@ -122,6 +122,38 @@ html.dark .topbar {
     border-bottom: none;
 }
 
+/* ---- Ban list page overrides ----------------------------------- */
+/*
+ * Remove coloured left border from ban state rows.
+ * The ban-row--* classes in theme.css add a left border per state
+ * (permanent=red, active=amber, expired=zinc, unbanned=green).
+ * We keep ban-row for JS wiring but suppress the visual border.
+ */
+.ban-row--permanent,
+.ban-row--active,
+.ban-row--expired,
+.ban-row--unbanned {
+    border-left: none !important;
+}
+
+/*
+ * SteamID column — remove monospace font for visual consistency
+ * with other table cells. The font-mono class in the default
+ * template is overridden here rather than in the template so the
+ * testid contract stays intact.
+ */
+.table td.font-mono {
+    font-family: var(--font-sans);
+}
+
+/*
+ * Page width — normalise to 1400px to match dashboard/servers.
+ * Targets the #banlist-root ID the default template ships.
+ */
+#banlist-root {
+    max-width: 1400px !important;
+}
+
 /* ---- Click-to-copy server address ------------------------------ */
 .windmill-copy-host {
     cursor: pointer;
