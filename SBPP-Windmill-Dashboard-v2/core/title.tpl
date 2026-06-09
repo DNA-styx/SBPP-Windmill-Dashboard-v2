@@ -56,8 +56,10 @@
 
         {*
             Theme toggle — cycles light → dark → system.
-            theme.js listens for data-theme-toggle clicks.
-            Icon and tooltip are updated by the sync script below.
+            theme.js owns the toggle logic and writes data-theme-pref
+            on <html> synchronously on every click. The sync script
+            below reads that attribute (no setTimeout needed) to update
+            the icon and tooltip label immediately.
         *}
         <button type="button"
                 class="btn btn--ghost btn--icon"
@@ -65,7 +67,9 @@
                 id="windmill-theme-btn"
                 data-testid="theme-toggle"
                 aria-label="System">
-            <i data-lucide="monitor" aria-hidden="true" id="windmill-theme-icon"></i>
+            <span id="windmill-theme-icon-light" style="display:none;line-height:0"><i data-lucide="sun" aria-hidden="true"></i></span>
+            <span id="windmill-theme-icon-dark"  style="display:none;line-height:0"><i data-lucide="moon" aria-hidden="true"></i></span>
+            <span id="windmill-theme-icon-system" style="line-height:0"><i data-lucide="monitor" aria-hidden="true"></i></span>
         </button>
 
         {*
@@ -98,10 +102,39 @@
     </header>
 
     {*
-        Close the links dropdown when the user clicks anywhere outside it.
-        Native <details> does not do this on its own.
-        Scoped to #links-dropdown only — no global state touched.
+        Theme toggle icon + tooltip sync.
+        Three icon spans are pre-rendered; sync just shows/hides them —
+        no DOM manipulation at swap time so no flash.
+        Reads localStorage (works with both old and new theme.js).
     *}
+    <script>
+    (function () {
+        var labels = { light: 'Light', dark: 'Dark', system: 'System' };
+
+        function syncBtn() {
+            var mode = 'system';
+            try { mode = localStorage.getItem('sbpp-theme') || 'system'; } catch (e) {
+                mode = document.documentElement.getAttribute('data-theme-pref') || 'system';
+            }
+            var btn = document.getElementById('windmill-theme-btn');
+            if (btn) {
+                btn.setAttribute('aria-label', labels[mode] || mode);
+                btn.setAttribute('title', labels[mode] || mode);
+            }
+            ['light', 'dark', 'system'].forEach(function (m) {
+                var el = document.getElementById('windmill-theme-icon-' + m);
+                if (el) el.style.display = (m === mode) ? '' : 'none';
+            });
+        }
+
+        syncBtn();
+        document.addEventListener('click', function (e) {
+            if (e.target && e.target.closest('[data-theme-toggle]')) {
+                setTimeout(syncBtn, 50);
+            }
+        });
+    })();
+    </script>
     {if $link_array}
         <script>
         (function () {
@@ -117,43 +150,11 @@
     {/if}
 
     {*
-        Theme toggle icon + tooltip sync.
-        Updates the button icon and title attribute to reflect the
-        current mode (light/dark/system) on page load and after each
-        click. theme.js owns the actual toggle logic; this script only
-        reads localStorage and updates the visual state.
-        setTimeout(0) defers the post-click read until after theme.js
-        has written the new value to localStorage.
+        Close the links dropdown when the user clicks anywhere outside it.
+        Native <details> does not do this on its own.
+        Scoped to #links-dropdown only — no global state touched.
     *}
-    <script>
-    (function () {
-        var icons  = { light: 'sun', dark: 'moon', system: 'monitor' };
-        var labels = { light: 'Light', dark: 'Dark', system: 'System' };
-
-        function syncBtn() {
-            var mode = 'system';
-            try { mode = localStorage.getItem('sbpp-theme') || 'system'; } catch (e) {}
-            var btn  = document.getElementById('windmill-theme-btn');
-            var icon = document.getElementById('windmill-theme-icon');
-            if (!btn || !icon) return;
-            var label = labels[mode] || mode;
-            btn.setAttribute('aria-label', label);
-            btn.setAttribute('title', label);
-            icon.setAttribute('data-lucide', icons[mode] || 'monitor');
-            if (window.lucide) window.lucide.createIcons({ nodes: [icon] });
-        }
-
-        syncBtn();
-        document.addEventListener('click', function (e) {
-            if (e.target && e.target.closest('[data-theme-toggle]')) {
-                setTimeout(syncBtn, 0);
-            }
-        });
-    })();
-    </script>
-
     {*
-        Brand-colour page title bar.
         Rounded, padded, not full-width — styled in windmill-base.css.
     *}
     <div class="windmill-title-bar" data-testid="page-title-bar">

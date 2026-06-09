@@ -117,6 +117,25 @@ html.dark .topbar {
     }
 }
 
+/* ---- Comms unblock button consistent width --------------------- */
+/* Ensures Ungag / Unmute / Lift block all render the same width */
+[data-testid="row-action-unblock"],
+[data-testid="row-action-unblock-mobile"] {
+    min-width: 6rem;
+    justify-content: center;
+}
+
+/* ---- Theme switch transitions ---------------------------------- */
+/*
+ * theme.css transitions background-color and border-color on .btn
+ * but omits color, which causes text and SVG stroke to flash when
+ * switching themes. Adding color here covers both button labels and
+ * Lucide SVG icons (which use stroke="currentColor").
+ */
+.btn {
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
 /* ---- Sidebar brand --------------------------------------------- */
 .sidebar__brand {
     border-bottom: none;

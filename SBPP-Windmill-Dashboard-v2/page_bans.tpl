@@ -265,7 +265,7 @@
             </div>
             {/if}
           </td>
-          <td class="text-muted col-tier-2">{if empty($ban.sname)}<i class="text-faint">—</i>{else}{$ban.sname|escape}{/if}</td>
+          <td class="text-muted col-tier-2" data-sip="{$ban.sname|escape}">{if empty($ban.sname)}<i class="text-faint">—</i>{else}{$ban.sname|escape}{/if}</td>
           {if !$hideadminname}<td class="text-muted col-admin col-tier-2">{if empty($ban.adminname)}<i class="text-faint">—</i>{else}{$ban.adminname|escape}{/if}</td>{/if}
           <td class="text-muted col-length col-tier-3">{$ban.length_human|escape}</td>
           <td class="text-muted col-banned col-tier-3">{$ban.banned_human|escape}</td>
@@ -370,7 +370,7 @@
         <a class="ban-card__summary"
            href="index.php?p=banlist&searchText={$ban.steam|escape:'url'}"
            data-drawer-bid="{$ban.bid}"
-           data-testid="ban-card-link">
+           data-testid="drawer-trigger">
           <i data-lucide="{if $ban.state == 'permanent'}shield-ban{elseif $ban.state == 'active'}shield-alert{elseif $ban.state == 'expired'}shield-off{elseif $ban.state == 'unbanned'}shield-x{else}shield-ban{/if}"
              style="color:var(--text-muted);flex-shrink:0"
              class="windmill-row__icon-lg"
@@ -652,17 +652,34 @@
                 var label;
                 if (r && r.data && r.data.error !== 'connect' && r.data.hostname) {
                     label = r.data.hostname + ' (' + r.data.ip + ':' + r.data.port + ')';
+                    return { ip: r.data.ip, port: r.data.port, hostname: r.data.hostname, label: label, opt: opt, fallback: fallback };
                 } else if (r && r.data && r.data.error === 'connect') {
                     label = 'Offline (' + r.data.ip + ':' + r.data.port + ')';
-                } else {
-                    label = fallback;
+                    return { ip: r.data.ip, port: r.data.port, hostname: null, label: label, opt: opt, fallback: fallback };
                 }
-                opt.textContent = label;
+                return { ip: null, port: null, hostname: null, label: fallback, opt: opt, fallback: fallback };
             })
             .catch(function () {
-                opt.textContent = fallback;
+                return { ip: null, port: null, hostname: null, label: fallback, opt: opt, fallback: fallback };
             });
-    })).then(function () {
+    })).then(function (results) {
+        var ipMap = {};
+        results.forEach(function (r) {
+            r.opt.textContent = r.label;
+            if (r.ip && r.hostname) {
+                ipMap[r.ip] = r.hostname;
+            }
+        });
+
+        document.querySelectorAll('td[data-sip]').forEach(function (td) {
+            var sip = td.dataset.sip;
+            if (!sip) return;
+            var ip = sip.split(':')[0];
+            if (ipMap[ip]) {
+                td.textContent = ipMap[ip];
+            }
+        });
+
         var sel = document.querySelector('[data-testid="bans-server-filter"]');
         if (!sel) return;
         var cs = getComputedStyle(sel);
