@@ -43,7 +43,7 @@
     {* -- Sticky filter bar -------------------------------------------- *}
     <form method="get" action="index.php"
           id="comms-filters"
-          style="position:sticky;top:3.5rem;z-index:20;background:var(--bg-page);padding:0.75rem 0;border-bottom:1px solid var(--border)">
+          style="position:sticky;top:3.5rem;z-index:20;background:var(--bg-page);padding:0.75rem 0">
         <input type="hidden" name="p" value="commslist">
         <div class="flex gap-3" style="flex-wrap:wrap">
             <div style="flex:1;min-width:14rem;max-width:24rem;position:relative">

@@ -66,7 +66,7 @@
   {/if}
 
   {* -- Sticky filter bar ------------------------------------------- *}
-  <form method="get" action="index.php" id="banlist-filters" style="position:sticky;top:3.5rem;z-index:20;background:var(--bg-page);padding:0.75rem 0;border-bottom:1px solid var(--border)">
+  <form method="get" action="index.php" id="banlist-filters" style="position:sticky;top:3.5rem;z-index:20;background:var(--bg-page);padding:0.75rem 0">
     <input type="hidden" name="p" value="banlist">
     <div class="flex gap-3" style="flex-wrap:wrap">
       <div style="flex:1;min-width:14rem;max-width:24rem;position:relative">
@@ -202,37 +202,15 @@
                 </div>
                 {/if}
                 {if $view_comments && $ban.commentdata != "None" && $ban.commentdata|@count > 0}
-                <details class="ban-comments-inline"
-                         data-testid="ban-comments-inline"
-                         data-bid="{$ban.bid}">
-                  <summary class="ban-comments-inline__summary"
-                           data-testid="ban-comments-toggle"
-                           title="{$ban.commentdata|@count} comment{if $ban.commentdata|@count != 1}s{/if} on this ban">
+                <a class="ban-comments-inline__summary"
+                   style="display:inline-flex;align-items:center;gap:0.25rem;margin-top:0.125rem;font-size:0.75rem;color:var(--text-muted);text-decoration:none;cursor:pointer"
+                   data-drawer-bid="{$ban.bid}"
+                   data-testid="ban-comments-drawer-trigger"
+                   href="index.php?p=banlist&searchText={$ban.steam|escape:'url'}">
                     <i data-lucide="message-square-text" style="width:11px;height:11px" aria-hidden="true"></i>
                     <span class="tabular-nums">{$ban.commentdata|@count}</span>
                     <span class="ban-comments-inline__label">comment{if $ban.commentdata|@count != 1}s{/if}</span>
-                  </summary>
-                  <ul class="ban-comments-inline__list" data-testid="ban-comments-list">
-                    {foreach from=$ban.commentdata item=com}
-                    <li class="ban-comments-inline__item" data-testid="ban-comment-item">
-                      <div class="ban-comments-inline__meta">
-                        {if !empty($com.comname)}
-                          <strong>{$com.comname|escape}</strong>
-                        {else}
-                          <i class="text-faint">deleted admin</i>
-                        {/if}
-                        <span class="text-faint">&middot;</span>
-                        <span class="text-xs text-faint tabular-nums">{$com.added}</span>
-                      </div>
-                      {* nofilter: server-built HTML — encodePreservingBr + URL-wrap *}
-                      <div class="ban-comments-inline__text" data-testid="ban-comment-text">{$com.commenttxt nofilter}</div>
-                      {if !empty($com.edittime)}
-                      <div class="ban-comments-inline__edit text-xs text-faint">last edit {$com.edittime} by {if !empty($com.editname)}{$com.editname|escape}{else}<i>deleted admin</i>{/if}</div>
-                      {/if}
-                    </li>
-                    {/foreach}
-                  </ul>
-                </details>
+                </a>
                 {/if}
               </div>
             </div>
@@ -461,18 +439,62 @@
       {/foreach}
     </div>
 
+    <div class="windmill-card-footer" aria-hidden="true"></div>
   </div>{* /.card *}
 
   {* -- Pagination -------------------------------------------------- *}
   {if !empty($ban_nav)}
-  <div class="card">
-    <div class="card__body">
-      <nav class="text-xs text-muted" aria-label="Ban list pagination">
-        {* nofilter: server-built pagination HTML *}
-        {$ban_nav nofilter}
-      </nav>
+  <div id="ban-nav-raw" hidden aria-hidden="true">{$ban_nav nofilter}</div>
+  <div class="flex items-center justify-between text-xs text-muted" data-testid="bans-pagination">
+    <div id="bans-page-counter"></div>
+    <div class="flex gap-1">
+      <a id="bans-page-prev" class="btn btn--secondary btn--sm" style="opacity:0.5;pointer-events:none" aria-disabled="true">
+        <i data-lucide="chevron-left"></i> Prev
+      </a>
+      <a id="bans-page-next" class="btn btn--secondary btn--sm" style="opacity:0.5;pointer-events:none" aria-disabled="true">
+        Next <i data-lucide="chevron-right"></i>
+      </a>
     </div>
   </div>
+  <script>
+  (function () {
+    var raw = document.getElementById('ban-nav-raw');
+    if (!raw) return;
+    var sel = raw.querySelector('select');
+    var prevLink = raw.querySelector('a[href*="start="]') || raw.querySelector('a:first-of-type');
+    var links = raw.querySelectorAll('a');
+    var nextLink = null, prevLinkEl = null;
+    links.forEach(function (a) {
+      var t = a.textContent.trim();
+      if (t.indexOf('next') !== -1 || t === '»' || t === 'next »') nextLink = a;
+      if (t.indexOf('prev') !== -1 || t === '«' || t === '« prev') prevLinkEl = a;
+    });
+    var totalPages = sel ? sel.options.length : 1;
+    var currentPage = sel ? (sel.selectedIndex + 1) : 1;
+    var pageSize = 10;
+    var total = {$total_bans};
+    var from = (currentPage - 1) * pageSize + 1;
+    var to = Math.min(currentPage * pageSize, total);
+    var counter = document.getElementById('bans-page-counter');
+    if (counter) {
+      counter.innerHTML = 'Showing <span style="font-weight:600;color:var(--text)">' + from + '–' + to + '</span> of <span style="font-weight:600;color:var(--text)">' + total + '</span>';
+    }
+    var prevBtn = document.getElementById('bans-page-prev');
+    var nextBtn = document.getElementById('bans-page-next');
+    if (prevBtn && prevLinkEl) {
+      prevBtn.href = prevLinkEl.href;
+      prevBtn.style.opacity = '';
+      prevBtn.style.pointerEvents = '';
+      prevBtn.removeAttribute('aria-disabled');
+    }
+    if (nextBtn && nextLink) {
+      nextBtn.href = nextLink.href;
+      nextBtn.style.opacity = '';
+      nextBtn.style.pointerEvents = '';
+      nextBtn.removeAttribute('aria-disabled');
+    }
+  }());
+  </script>
   {/if}
 
   <div data-skeleton hidden aria-hidden="true">
