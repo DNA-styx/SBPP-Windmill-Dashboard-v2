@@ -1,42 +1,35 @@
 {*
-    SourceBans++ 2026 — page / page_protestban.tpl
+    SBPP Windmill Dashboard v2 — page_protestban.tpl
 
-    Public ban-appeal form. Replaces the A1 stub. Pair view:
-    Sbpp\View\ProtestBanView, page handler: web/pages/page.protest.php.
-
-    Layout follows the handoff "submit + login two-column" shell
-    pattern: a primary form card (the handoff submit.tpl shape) sits
-    next to a slim info aside that mirrors login.tpl's right-rail —
-    "what happens next" plus the threat-warning blurb the legacy
-    page already shipped, so the public-facing copy is preserved
-    without leaning on the legacy table chrome.
-
-    Variable parity with the legacy default theme is intentional: the
-    paired view declares exactly $steam_id, $ip, $player_name, $reason
-    and $player_email so the dual-theme PHPStan matrix (#1123 A2) is
-    happy on both legs until D1 collapses it. We DON'T introduce a
-    $type property — instead we infer the initially-visible row from
-    whether $ip arrived non-empty, which is the only way the legacy
-    POST handler can leave $ip populated on a re-render after a
-    failed submit.
+    Customised from web/themes/default/page_protestban.tpl:
+      - <header> block (h1 + intro text) removed — purple bar carries title
+      - Title bar overridden to "Appeal a ban" via inline JS
+      - Intro text ("Think a ban...") moved to top of right aside card
+      - "You'll receive a reply by email" removed — no $smtp_enabled
+        variable available in ProtestBanView to gate it conditionally
+      - Form section centred via margin:0 auto
+      - Cancel button removed — browser back handles navigation
 
     Form field name= attributes (Type, SteamID, IP, PlayerName,
-    BanReason, EmailAddr, subprotest) are FROZEN — page.protest.php
-    reads them straight off $_POST. Test hooks (data-testid="protest-…")
-    are additive and stable per the issue's "Testability hooks" rule.
+    BanReason, EmailAddr, subprotest), CSRF field, and all
+    data-testid hooks preserved exactly from default.
 *}
+
 {assign var="ip_first" value=($ip != '')}
-<section class="p-6 space-y-6" style="max-width:64rem">
-    <header>
-        <h1 style="font-size:1.5rem;font-weight:600;margin:0">Appeal a ban</h1>
-        <p class="text-sm text-muted m-0 mt-2">
-            Think a ban on your account is a mistake? Submit an appeal
-            below and the staff team will review it. Confirm the ban first
-            on the <a href="index.php?p=banlist" style="color:var(--accent)">ban list</a>.
-        </p>
-    </header>
+
+{* Override title bar — $title is set by PHP *}
+<script>
+(function () {
+    var bar = document.querySelector('[data-testid="page-title-bar"]');
+    if (bar) bar.textContent = 'Appeal a Ban';
+}());
+</script>
+
+<section class="p-6 space-y-6" style="max-width:64rem;margin:0 auto">
 
     <div class="grid gap-4" style="grid-template-columns:minmax(0,2fr) minmax(0,1fr)">
+
+        {* -- Left: appeal form ---------------------------------------- *}
         <form class="card"
               method="post"
               action="index.php?p=protest"
@@ -47,7 +40,6 @@
                     <h3>Your details</h3>
                     <p>Fields marked <span style="color:var(--danger)">*</span> are required.</p>
                 </div>
-                <i data-lucide="megaphone" style="color:var(--text-faint)"></i>
             </div>
             <div class="card__body space-y-4">
                 {csrf_field}
@@ -148,24 +140,27 @@
             </div>
         </form>
 
+        {* -- Right: info aside ---------------------------------------- *}
         <aside class="card">
             <div class="card__header">
                 <div>
-                    <h3>What happens next?</h3>
-                    <p>Typical turnaround</p>
+                    <h3>Appeal a Ban</h3>
                 </div>
-                <i data-lucide="info" style="color:var(--text-faint)"></i>
             </div>
             <div class="card__body space-y-4 text-sm">
                 <p class="m-0 text-muted">
-                    The staff team is notified the moment you submit.
-                    They review the original ban evidence and the context
-                    you provide here.
+                    Think a ban on your account is a mistake? Submit an appeal
+                    and the staff team will review it. Confirm the ban first
+                    on the <a href="index.php?p=banlist" style="color:var(--accent)">ban list</a>.
                 </p>
-                <p class="m-0 text-muted">
-                    You'll receive a reply by email — usually within
-                    <span class="font-medium" style="color:var(--text)">24 hours</span>.
-                </p>
+                <div style="border-top:1px solid var(--border);padding-top:1rem">
+                    <h3 style="font-size:var(--fs-sm);font-weight:600;margin:0 0 0.5rem">What happens next?</h3>
+                    <p class="m-0 text-muted">
+                        The staff team is notified the moment you submit.
+                        They review the original ban evidence and the context
+                        you provide here.
+                    </p>
+                </div>
                 <div class="space-y-3"
                      style="border-top:1px solid var(--border);padding-top:1rem">
                     <div class="flex gap-2 items-start">
@@ -173,12 +168,13 @@
                         <p class="m-0 text-xs text-muted">
                             Threats, harassment, or abuse aimed at the
                             staff will not get you unbanned and will get
-                            you permanently banned from every service.
+                            you permanently banned.
                         </p>
                     </div>
                 </div>
             </div>
         </aside>
+
     </div>
 </section>
 
@@ -201,5 +197,5 @@
     }
     typeSelect.addEventListener('change', sync);
     sync();
-})();
+}());
 </script>
