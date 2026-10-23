@@ -427,3 +427,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Tailwind standalone CLI binary (local build tool only)
+tailwindcss.exe
