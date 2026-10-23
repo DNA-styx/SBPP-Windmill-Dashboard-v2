@@ -1,5 +1,5 @@
 {*
-    SBPP Windmill Dashboard v2 — page_admin_export.tpl
+    SourceBans++ 2026 — page_admin_export.tpl
     Bound to Sbpp\View\AdminExportView (validated by SmartyTemplateRule).
 
     "Full data export" admin surface. Two delivery modes:
@@ -34,6 +34,13 @@
             See the <a href="https://sbpp.github.io/configuring/data-export/" target="_blank" rel="noopener noreferrer">data-export docs</a>
             for the wire format and per-mode setup.
         </p>
+        <p class="text-xs text-muted m-0 mt-2" data-testid="admin-export-rookhelm">
+            Moving to a hosted panel?
+            <a href="https://rookhelm.com?utm_source=sourcebans-pp&amp;utm_medium=referral&amp;utm_content=panel-export"
+               target="_blank"
+               rel="noopener">RookHelm</a>
+            imports this export directly.
+        </p>
     </div>
 
     <div class="card mb-4" data-testid="admin-export-summary-card">
@@ -44,7 +51,7 @@
             </p>
         </div>
         <div class="card__body">
-            <dl style="display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:0.75rem 1.5rem;margin:0">
+            <dl class="install-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:0.75rem 1.5rem;margin:0">
                 <div>
                     <dt class="text-xs text-muted">Panel version</dt>
                     <dd class="font-mono" data-testid="admin-export-panel-version" style="margin:0">{$panel_version|escape}</dd>
@@ -82,7 +89,7 @@
             {if $row_counts|@count > 0}
                 <details class="mt-4">
                     <summary class="text-sm" style="cursor:pointer">Per-entity row counts</summary>
-                    <dl class="mt-2" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(12rem,1fr));gap:0.25rem 1.5rem;margin:0;font-size:var(--fs-xs)">
+                    <dl class="install-grid mt-2" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(12rem,1fr));gap:0.25rem 1.5rem;margin:0;font-size:var(--fs-xs)">
                         {foreach from=$row_counts key=entity item=count}
                             <div style="display:flex;justify-content:space-between;gap:0.5rem">
                                 <dt class="text-muted font-mono">{$entity|escape}</dt>
@@ -96,7 +103,13 @@
     </div>
 
     {if $exceeds_cap}
-        <div class="card mb-4" data-testid="admin-export-cap-empty" data-filtered="false">
+        {* First-run vs filtered shape per AGENTS.md "Empty states": the
+           bundle is too big for S3's single-PUT cap, but the ZIP path
+           is still available so the operator isn't blocked outright.
+           Use the first-run shape with NO Clear-filters CTA — the
+           ZIP form above IS the path forward, no extra CTA needed.
+           `data-filtered="false"` per the convention. *}
+        <div class="card" data-testid="admin-export-cap-empty" data-filtered="false">
             <div class="empty-state">
                 <span class="empty-state__icon" aria-hidden="true">
                     <i data-lucide="alert-triangle" style="width:18px;height:18px"></i>
@@ -111,7 +124,7 @@
         </div>
     {/if}
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(22rem,1fr));gap:1rem;margin-top:1rem">
+    <div class="grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(22rem,1fr));gap:1rem;margin-top:1rem">
         <form class="card"
               method="post"
               action="export.php"
@@ -182,13 +195,14 @@
     </div>
 </section>
 
-{* Page-tail script: gates submit buttons through window.SBPP.setBusy so
-   the browser doesn't appear frozen while the request travels.
-   The ZIP path streams a binary response (no redirect); the S3 path
-   302-redirects back on completion. Both tear the page down so we
-   deliberately DON'T call setBusy(btn, false) — the next paint resets
-   the DOM either way. The local setBusy wrapper falls back to plain
-   `disabled` so the theme still gates double-clicks if theme.js is absent. *}
+{* Page-tail script: gates the submit buttons through window.SBPP.setBusy
+   so the browser doesn't appear frozen while the request travels. The
+   ZIP path streams a binary response body (no page-render reset, no
+   redirect); the S3 path 302-redirects back here on completion. Both
+   tear the page down so we deliberately DON'T `setBusy(submitBtn, false)`
+   in the submit handler — the next paint resets the DOM either way. The
+   local `setBusy` wrapper falls back to plain `disabled` so third-party
+   themes that strip theme.js still gate against double-clicks. *}
 {literal}
 <script>
 (function () {
@@ -202,9 +216,7 @@
             btn.disabled = busy === undefined ? true : !!busy;
         }
     }
-    var forms = document.querySelectorAll(
-        '[data-testid="admin-export-zip-form"], [data-testid="admin-export-s3-form"]'
-    );
+    var forms = document.querySelectorAll('[data-testid="admin-export-zip-form"], [data-testid="admin-export-s3-form"]');
     for (var i = 0; i < forms.length; i++) {
         forms[i].addEventListener('submit', function (e) {
             var submit = e.target.querySelector('[type="submit"]');

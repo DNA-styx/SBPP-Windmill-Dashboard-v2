@@ -23,7 +23,7 @@
         </div>
     </div>
 {else}
-    <section class="p-6" data-testid="protests-section" style="max-width:1400px">
+    <section class="page-section" data-testid="protests-section" style="padding-top:0.75rem">
         <div class="flex items-center justify-between gap-4 mb-4" style="flex-wrap:wrap">
             <div>
                 <h1 style="font-size:1.5rem;font-weight:600;margin:0">
@@ -75,7 +75,7 @@
                             <div class="queue-row__body">
                                 <div class="font-medium text-sm truncate" data-testid="protest-row-name">
                                     <a class="link"
-                                       href="./index.php?p=banlist&advSearch={$protest.authid|escape:'url'}&advType=steamid"
+                                       href="./index.php?p=banlist&searchText={$protest.authid|escape:'url'}"
                                        title="Show ban"
                                        onclick="event.stopPropagation();">{$protest.name|escape}</a>
                                 </div>

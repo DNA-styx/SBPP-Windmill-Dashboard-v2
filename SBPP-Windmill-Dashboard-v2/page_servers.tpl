@@ -1,41 +1,134 @@
 {*
-    SBPP Windmill Dashboard v2 — page_servers.tpl
+    SourceBans++ 2026 — page_servers.tpl
 
-    Customised from v2 default. Changes from default:
-      - Page h1 "Servers" heading removed
-      - Summary rewritten to "Y of X online" via inline script
-      - Action row reordered: Players | Refresh | Connect
-      - Refresh promoted from icon-only ghost to btn--secondary btn--sm
-        with icon + "Refresh" label
-      - Connect pushed right via margin-left:auto
-      - Connect hidden on mobile via .windmill-connect-btn
+    Public servers list. Replaces the A1 stub. Pair:
+    web/pages/page.servers.php + web/includes/View/ServersView.php
+    (#1123 B5).
 
-    Structure preserved EXACTLY from v2 default:
-      - data-player-list ul inside server-players-panel (hydrator writes <li> here)
-      - data-empty-message p inside server-players-panel
-      - server-tile__mapimg class on map image
-      - map image style matches AGENTS.md spec exactly
-      - data-testid="servers-list" on grid container
-      - data-opened-index="{$opened_server}"
+    Why this differs from handoff/pages/servers.tpl
+    -----------------------------------------------
+    The handoff card grid is treated as the visual reference for the
+    layout shell (mod-letter avatar, hostname + ip:port, status pill,
+    players bar, map row), not as a 1:1 markup port:
 
-    Variable contract (Sbpp\View\ServersView):
-        $server_list          — array of server objects
-        $can_add_server       — bool
-        $can_use_context_menu — bool
-        $opened_server        — int|null (deep-link auto-expand)
+      * The handoff renders an "Add server" button and per-row "RCON" /
+        "Players" admin shortcuts gated on SourceMod char-flags
+        (`$user.srv_flags|strpos:'z'`). The legacy public servers page
+        carries neither — both belong on the admin servers list page
+        (#1123 B15). Reproducing them here would require Perms / SM
+        char-flag plumbing the public View doesn't need today, so
+        they're intentionally cut.
+      * The handoff's status (online/offline) is set server-side from a
+        precomputed `$s.online`. We don't have that cheaply: each card
+        starts in a loading state and progressively flips to
+        online/offline as the inline `sb.api.call(
+        Actions.ServersHostPlayers, …)` per-card response lands. This
+        mirrors the legacy `LoadServerHost(...)` UDP-poll flow.
+
+    Live data flow
+    --------------
+    SourceQuery (xpaw/php-source-query-class) is a UDP probe — the
+    server may be down, behind NAT, or rate-limiting. The handler
+    returns `{ error: 'connect', ip, port, is_owner }` on failure
+    instead of throwing, so each card has to handle three terminal
+    states: `loading` (initial), `online` (data came back clean),
+    `offline` (handler returned `error: 'connect'` or the call itself
+    failed). Status is persisted in the `data-status` attribute so
+    Playwright (and humans) can assert state without reading computed
+    CSS — see #1123 issue body's "State in attributes, not just
+    styling" rule.
+
+    Auto-expand
+    -----------
+    Mirrors the legacy `?p=servers&s={index}` pattern: when the page
+    handler sets `opened_server >= 0`, the matching card auto-expands
+    its player list once the live response lands. The expansion fetches
+    no additional data — the same `Actions.ServersHostPlayers`
+    response already includes `player_list[]`.
+
+    Per-row JS without ./scripts/sourcebans.js
+    ------------------------------------------
+    sourcebans.js is dropped at #1123 D1, so we can't use the legacy
+    `LoadServerHost()` / `InitAccordion()` helpers; they'd be undefined
+    here. The card markup carries `data-sid` / `data-index` /
+    `data-status` and the shared hydration helper
+    (`web/scripts/server-tile-hydrate.js`) walks
+    `[data-testid="server-tile"]` inside the `[data-server-hydrate]`
+    wrapper. `sb.api.call` and the `Actions.*` constants come from
+    the chrome's api.js + api-contract.js (loaded by core/header.tpl).
+    The helper auto-runs on first paint, so the page-level body needs
+    no inline `<script>` block of its own — it just renders the markup
+    contract the helper reads. The same helper also drives the admin
+    Server Management list (#1313) so both surfaces share the contract.
+
+    Testability hooks (per #1123 issue + B5 brief)
+    ----------------------------------------------
+      data-testid="servers-list"   — outer container
+      data-testid="server-tile"    — each card (one per server)
+      data-testid="server-toggle"  — expand/collapse trigger
+      data-testid="server-connect" — steam:// connect button
+      data-id=$server.sid          — stable integer (NOT the index)
+      data-status="loading|online|offline" — terminal state on each card
+      data-index=$server.index     — 0-based offset for the dashboard
+                                     ?p=servers&s=N deep link
 *}
-<div class="p-6 space-y-6" style="max-width:1400px;margin:0 auto;width:100%">
+<div class="p-6 space-y-4" style="max-width:1400px;margin:0 auto;width:100%">
 
     <header class="flex items-end justify-between gap-3" style="flex-wrap:wrap">
-    {if $can_use_context_menu}
-            <p class="servers-rcon-hint text-xs text-muted m-0" aria-hidden="true">
-                <i data-lucide="mouse-pointer-2" style="width:11px;height:11px;vertical-align:-1px"></i>
-                Right-click a player row for moderation actions
+        <div>
+            <h1 style="font-size:var(--fs-2xl);font-weight:600;margin:0">Servers</h1>
+            <p class="text-sm text-muted m-0 mt-2"
+               data-testid="servers-summary"
+               data-total="{$server_list|@count}">
+                {$server_list|@count} configured
+                <span data-online-count>&middot; <span data-online-num>0</span> online</span>
+            </p>
+        </div>
+        {*
+            Admin right-click context-menu hint. Restored after the
+            #1306 removal — the supporting JS now lives at
+            `web/scripts/server-context-menu.js` (event-delegate
+            pattern, NOT a port of the legacy MooTools `sb.contextMenu`
+            helpers), and the SteamIDs the menu keys off come from an
+            extension to `api_servers_host_players` that does a
+            cached RCON `status` round-trip per server (see
+            `Sbpp\Servers\RconStatusCache`). Gated on
+            `can_use_context_menu` so anonymous viewers and admins
+            without `ADMIN_OWNER | ADMIN_ADD_BAN` don't see hint
+            copy describing a feature they can't reach. See
+            `web/scripts/server-context-menu.js` for the menu's full
+            data-attribute contract.
+        *}
+        {if $can_use_context_menu}
+            {* Hint copy describes a right-click gesture, so we hide it
+               on touch-only devices (`pointer: coarse` AND `hover: none`)
+               via `.servers-rcon-hint` in theme.css. The menu itself is
+               desktop-only on mobile Safari / most Android browsers (no
+               `contextmenu` event from a long-press); users with a
+               Bluetooth mouse on a tablet still see it because their
+               primary pointer reports `hover: hover`. Keeping the
+               element in the DOM rather than gating server-side keeps
+               the visibility responsive to a paired mouse/keyboard
+               that connects mid-session (some Android tablets fire a
+               `pointer: fine` change event when a Bluetooth mouse
+               attaches). *}
+            <p class="text-xs text-muted m-0 servers-rcon-hint"
+               data-testid="servers-rcon-hint"
+               style="max-width:24rem;text-align:right">
+                Right-click a player on an expanded card to view their
+                profile, copy their SteamID, or kick / ban / block them.
+                Kick / ban / block actions only show on servers you have
+                RCON access to.
             </p>
         {/if}
     </header>
 
-    {if !$server_list}
+    {if $server_list|@count == 0}
+        {* #1207 PUB-3 + empty-state unification: first-run state.
+           The body copy stays terse; the primary CTA is gated on
+           `can_add_server` (Perms::for $userbank), so a logged-out
+           visitor / admin without ADMIN_ADD_SERVER sees the copy
+           but no link to the admin form they couldn't use anyway. *}
         <div class="card" data-testid="servers-empty">
             <div class="empty-state">
                 <span class="empty-state__icon" aria-hidden="true">
@@ -59,12 +152,26 @@
             </div>
         </div>
     {else}
+    {*
+        data-server-hydrate="auto" tells web/scripts/server-tile-hydrate.js
+        to walk every `[data-testid="server-tile"]` inside this container
+        and fire `Actions.ServersHostPlayers` per tile after first paint.
+        data-opened-index threads through the deep-link auto-expand contract
+        from page.servers.php's `?p=servers&s=<n>` handler — the helper
+        flips the matching tile open once its hydration response lands.
+
+        `.servers-grid` (theme.css, #1316) is shared with
+        `page_admin_servers_list.tpl` so both surfaces look consistent
+        and a theme fork can override the column min-width in one
+        place. The class supersedes the pre-#1316 inline
+        `grid-template-columns` style; see the theme.css comment above
+        the `.servers-grid` rule for the breakpoint reasoning.
+    *}
     <div class="servers-grid"
          data-testid="servers-list"
          data-server-hydrate="auto"
          data-opened-index="{$opened_server}"
          data-trunchostname="70">
-
         {foreach $server_list as $server}
         <article class="card"
                  data-testid="server-tile"
@@ -94,10 +201,8 @@
                              title="{$server.ip}:{$server.port}">
                             {$server.ip}:{$server.port}
                         </div>
-                        <div class="text-xs text-muted truncate" style="margin-top:0.125rem">
-                            {if $server.mod}{$server.mod} &middot; {/if}<span class="windmill-copy-host"
-                                data-copy="{$server.ip}:{$server.port}"
-                                title="Click to copy">{$server.ip}:{$server.port}</span>
+                        <div class="font-mono text-xs text-faint truncate" style="margin-top:0.125rem">
+                            {if $server.mod}{$server.mod} &middot; {/if}{$server.ip}:{$server.port}
                         </div>
                     </div>
                     <span class="pill pill--offline"
@@ -113,7 +218,7 @@
                     <dt class="text-muted flex items-center gap-1" style="margin:0">
                         <i data-lucide="map" style="width:13px;height:13px"></i> Map
                     </dt>
-                    <dd class="text-muted" data-testid="server-map" style="margin:0">&mdash;</dd>
+                    <dd class="font-mono text-faint" data-testid="server-map" style="margin:0">&mdash;</dd>
 
                     <dt class="text-muted flex items-center gap-1" style="margin:0">
                         <i data-lucide="users" style="width:13px;height:13px"></i> Players
@@ -130,9 +235,14 @@
                          style="height:100%;background:var(--brand-600);width:0%;transition:width .25s ease"></div>
                 </div>
 
-                {* -- Action row: Players | Refresh | Connect (Connect rightmost) *}
                 <div class="flex gap-2"
                      style="margin-top:1rem;border-top:1px solid var(--border);padding-top:0.75rem">
+                    <a class="btn btn--primary btn--sm"
+                       data-testid="server-connect"
+                       href="steam://connect/{$server.dns}:{$server.port}">
+                        <i data-lucide="play" style="width:13px;height:13px"></i>
+                        Connect
+                    </a>
                     <button type="button"
                             class="btn btn--secondary btn--sm"
                             data-testid="server-toggle"
@@ -144,39 +254,64 @@
                         Players
                     </button>
                     <button type="button"
-                            class="btn btn--secondary btn--sm"
+                            class="btn btn--ghost btn--sm"
                             data-testid="server-refresh"
                             data-action="refresh"
+                            title="Re-query this server"
                             aria-label="Refresh server status"
                             disabled>
                         <i data-lucide="refresh-cw" style="width:13px;height:13px"></i>
-                        Refresh
                     </button>
-                    <a class="btn btn--primary btn--sm windmill-connect-btn"
-                       data-testid="server-connect"
-                       data-connect-href="steam://connect/{$server.dns}:{$server.port}"
-                       href="steam://connect/{$server.dns}:{$server.port}"
-                       style="margin-left:auto">
-                        <i data-lucide="play" style="width:13px;height:13px"></i>
-                        Connect
-                    </a>
                 </div>
+            </div>
 
-            </div>{* /.card__body *}
-
-            {*
-                Players panel — sibling of card__body, inside <article>.
-                The hydrator writes player <li> rows into [data-player-list].
-                Without data-player-list, renderPlayers() silently no-ops.
-                data-empty-message is shown when server has 0 players.
-                server-tile__mapimg class and exact inline style are
-                required by AGENTS.md spec — do not change.
-            *}
             <div id="server-players-{$server.sid}"
                  class="server-tile__players"
                  data-testid="server-players-panel"
                  hidden
                  style="border-top:1px solid var(--border);padding:0.75rem 1.25rem">
+                {*
+                    Map preview thumbnail. The legacy v1.x server card carried
+                    an inline `<img id="mapimg_{$server.sid}">` here; the
+                    #1123 D1 redesign dropped it but the API handler still
+                    returns `mapimg` (web/api/handlers/servers.php →
+                    api_servers_host_players → GetMapImage). The shared
+                    hydration helper at web/scripts/server-tile-hydrate.js
+                    (#1313) patches `src` from the live response via
+                    `applyData()`'s `[data-testid="server-map-img"]` lookup,
+                    unhides the element on `load`, and KEEPS it hidden on
+                    `error` (file missing or 404 / nomap.jpg also missing)
+                    so we never paint a broken-image icon. The helper is
+                    feature-detected, so the admin Server Management list
+                    (which does NOT ship this slot) silently no-ops.
+                    `alt=""` is intentional: the map name is already
+                    rendered as text in the `[data-testid="server-map"]`
+                    row above, so the image is decorative confirmation
+                    rather than independent content (#1312).
+
+                    Layout (#1375):
+                    -----------------
+                    The bundled map thumbnails under `web/images/maps/`
+                    are mostly 340×255 (4:3 landscape — `de_dust2.jpg`,
+                    `nomap.jpg`, the CS / TF2 set), with a handful of
+                    newer 16:9 MvM screenshots (800×450) thrown in.
+                    Pre-#1375 the slot ran `width:100%;max-height:140px;
+                    object-fit:cover` — but on a 28rem grid track (~448px
+                    painted card minus padding) that resolved to a ~400×140
+                    box (~2.86:1), so `object-fit:cover` cropped the
+                    middle horizontal band of a 4:3 source and the visible
+                    strip read as a horizontally-stretched fragment of the
+                    map (e.g. `de_dust2.jpg`'s windows visibly squashed).
+                    The fix is `max-width: 340px` (the natural source
+                    width — no upscaling blur on smaller maps) + `height:
+                    auto` so the rendered box matches the source aspect
+                    ratio exactly. Cards wider than 340px get the
+                    thumbnail centered (`margin: 0 auto`); narrower cards
+                    fall back to `width:100%` and scale proportionally.
+                    `object-fit` is dropped because `height:auto` already
+                    yields a box that matches the source aspect — there's
+                    no mismatch left for `cover` / `contain` to resolve.
+                *}
                 <img src=""
                      alt=""
                      data-testid="server-map-img"
@@ -186,160 +321,31 @@
                 <p class="text-xs text-muted m-0" data-empty-message>No players currently connected.</p>
                 <ul class="m-0" data-player-list style="list-style:none;padding:0;display:none"></ul>
             </div>
-
         </article>
         {/foreach}
-
     </div>
     {/if}
-
 </div>
 
+{*
+    Per-tile hydration is driven by web/scripts/server-tile-hydrate.js
+    (#1313). The helper auto-runs on first paint for every container
+    marked `data-server-hydrate="auto"` (see the `<div class="grid …">`
+    above), walks `[data-testid="server-tile"]` children, fires one
+    `Actions.ServersHostPlayers` call per tile and patches the live
+    cells (status pill, map, players, host, players bar). The script
+    file lives under web/scripts/ rather than inline so the admin
+    Server Management list (page_admin_servers_list.tpl, #1313) can
+    pull the same helper without copy-pasting ~200 lines of JS.
+*}
 <script src="./scripts/server-tile-hydrate.js" defer></script>
+{*
+    Right-click context menu on player rows in expanded server cards.
+    Only loaded when the viewer can actually use the menu — anonymous
+    visitors and admins without ADMIN_OWNER | ADMIN_ADD_BAN don't
+    get the SteamID side-channel from the JSON handler either, so
+    loading the script for them would be a no-op + a wasted byte.
+*}
 {if $can_use_context_menu}
 <script src="./scripts/server-context-menu.js" defer></script>
 {/if}
-
-{*
-    Offline state handler.
-    Watches data-status on each tile. When offline:
-      - Replaces Connect <a> with disabled <span> (square/stop icon)
-      - Keeps Players button disabled (hydrator already does this, but
-        we also apply aria-disabled styling so it reads as visually
-        disabled consistently)
-    When online: restores Connect <a> if it was previously replaced.
-*}
-<script>
-(function () {
-    var CONNECT_WIDTH = null;
-
-    function getConnectWidth() {
-        if (CONNECT_WIDTH) return CONNECT_WIDTH;
-        var online = document.querySelector('[data-testid="server-connect"]:not([aria-disabled])');
-        if (online) CONNECT_WIDTH = Math.round(online.getBoundingClientRect().width) + 'px';
-        return CONNECT_WIDTH || 'auto';
-    }
-
-    function updateTile(tile) {
-        var status = tile.dataset.status;
-        var connect = tile.querySelector('[data-testid="server-connect"]');
-        var toggle  = tile.querySelector('[data-testid="server-toggle"]');
-        if (!connect) return;
-
-        if (status === 'offline') {
-            if (connect.tagName === 'A') {
-                var w = getConnectWidth();
-                var span = document.createElement('span');
-                span.className = connect.className;
-                span.setAttribute('aria-disabled', 'true');
-                span.setAttribute('data-testid', 'server-connect');
-                span.style.cssText = 'margin-left:auto;opacity:0.5;pointer-events:none;cursor:default;flex-shrink:0;min-width:' + w + ';justify-content:center';
-                span.innerHTML = '<i data-lucide="square" style="width:13px;height:13px"></i> Offline';
-                connect.parentNode.replaceChild(span, connect);
-                if (window.lucide) window.lucide.createIcons({ nodes: [span] });
-            }
-            if (toggle) {
-                toggle.style.opacity = '0.5';
-                toggle.style.pointerEvents = 'none';
-                toggle.setAttribute('aria-disabled', 'true');
-            }
-        } else if (status === 'online') {
-            if (connect.tagName === 'SPAN') {
-                var href = tile.dataset.connectHref || connect.dataset.connectHref;
-                var a = document.createElement('a');
-                a.className = connect.className;
-                a.setAttribute('data-testid', 'server-connect');
-                a.setAttribute('href', href || '#');
-                a.style.cssText = 'margin-left:auto;flex-shrink:0';
-                a.innerHTML = '<i data-lucide="play" style="width:13px;height:13px"></i> Connect';
-                connect.parentNode.replaceChild(a, connect);
-                if (window.lucide) window.lucide.createIcons({ nodes: [a] });
-            }
-            if (toggle) {
-                toggle.style.opacity = '';
-                toggle.style.pointerEvents = '';
-                toggle.removeAttribute('aria-disabled');
-            }
-        }
-    }
-
-    document.querySelectorAll('[data-testid="server-tile"]').forEach(function (tile) {
-        new MutationObserver(function () { updateTile(tile); })
-            .observe(tile, { attributes: true, attributeFilter: ['data-status'] });
-        updateTile(tile);
-    });
-}());
-</script>
-
-{*
-    Click-to-copy for server address.
-    Document-level delegate on [data-copy] — never use stopPropagation.
-    Falls back to execCommand if clipboard API unavailable.
-    Shows a brief "Copied!" label in place of the address then restores.
-*}
-<script>
-(function () {
-    function copyText(text) {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            return navigator.clipboard.writeText(text);
-        }
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.cssText = 'position:fixed;opacity:0';
-        document.body.appendChild(ta);
-        ta.select();
-        try { document.execCommand('copy'); } catch (e) {}
-        document.body.removeChild(ta);
-        return Promise.resolve();
-    }
-
-    document.addEventListener('click', function (e) {
-        var el = e.target && e.target.closest('[data-copy]');
-        if (!el) return;
-        var text = el.dataset.copy;
-        if (!text) return;
-        copyText(text).then(function () {
-            var prev = el.textContent;
-            el.textContent = 'Copied!';
-            el.dataset.copied = 'true';
-            setTimeout(function () {
-                el.textContent = prev;
-                delete el.dataset.copied;
-            }, 1500);
-        });
-    });
-}());
-</script>
-
-{*
-    Player time formatter.
-    The hydrator writes time_f values like "26:56" (MM:SS) or "1:26:56"
-    (H:MM:SS). This normalises every cell to HH:MM:SS so the score
-    column aligns regardless of session length.
-    Watches each players panel via MutationObserver so it fires
-    after the hydrator inserts rows.
-*}
-<script>
-(function () {
-    function padTime(raw) {
-        if (!raw || typeof raw !== 'string') return raw;
-        var parts = raw.trim().split(':');
-        while (parts.length < 3) parts.unshift('00');
-        return parts.map(function (p) { return p.padStart(2, '0'); }).join(':');
-    }
-
-    function formatPanel(panel) {
-        panel.querySelectorAll('[data-testid="player-time"]').forEach(function (c) {
-            if (!c.dataset.timeFormatted) {
-                c.textContent = padTime(c.textContent);
-                c.dataset.timeFormatted = '1';
-            }
-        });
-    }
-
-    document.querySelectorAll('[data-testid="server-players-panel"]').forEach(function (panel) {
-        new MutationObserver(function () { formatPanel(panel); })
-            .observe(panel, { childList: true, subtree: true });
-    });
-}());
-</script>

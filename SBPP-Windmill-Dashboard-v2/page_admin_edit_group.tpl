@@ -1,10 +1,10 @@
 {*
     SourceBans++ (c) 2014-2026 SourceBans++ Dev Team
-    Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 3.0.
-    See LICENSE.md for the full license text and THIRD-PARTY-NOTICES.txt for attributions.
+    Licensed under the Elastic License 2.0.
+    See LICENSE.txt for the full license text and THIRD-PARTY-NOTICES.txt for attributions.
 
-    "Edit group" — pair: web/pages/admin.edit.group.php +
-    web/includes/View/EditGroupView.php (issue sbpp/goals#5, Phase 2.5f).
+    "Edit group" pair: web/pages/admin.edit.group.php +
+    web/includes/View/EditGroupView.php.
 
     Replaces the v1.x-era inline `echo` of `groups.web.perm.php` /
     `groups.server.perm.php` partials and the `ProcessEditGroup()` /
@@ -49,7 +49,7 @@
                     <h3>Web Admin Permissions</h3>
                 </div></div>
                 <div class="card__body">
-                    <table class="table" style="margin:0;font-size:var(--fs-sm)">
+                    <table class="table table--keep-mobile" style="margin:0;font-size:var(--fs-sm)">
                         <colgroup>
                             <col style="width:auto">
                             <col style="width:5rem">
@@ -152,7 +152,7 @@
                     <h3>Server Admin Permissions</h3>
                 </div></div>
                 <div class="card__body">
-                    <table class="table" style="margin:0;font-size:var(--fs-sm)">
+                    <table class="table table--keep-mobile" style="margin:0;font-size:var(--fs-sm)">
                         <thead><tr>
                             <th>Permission</th>
                             <th class="text-center" style="width:4rem">Flag</th>
@@ -237,7 +237,7 @@
                     </p>
                 </div></div>
                 <div class="card__body">
-                    <table class="table" style="margin:0;font-size:var(--fs-sm)" id="overrides-table">
+                    <table class="table table--keep-mobile" style="margin:0;font-size:var(--fs-sm)" id="overrides-table">
                         <thead><tr>
                             <th style="width:7rem">Type</th>
                             <th>Name</th>

@@ -48,13 +48,6 @@
                     Live host / map / player counts hydrate after first paint.
                 </p>
             </div>
-            {if $permission_addserver}
-                <a class="btn btn--primary"
-                   href="index.php?p=admin&amp;c=servers&amp;section=add"
-                   data-testid="server-list-add">
-                    Add server
-                </a>
-            {/if}
         </div>
 
         {if $server_count == 0}
@@ -146,11 +139,42 @@
                                     <span data-status-label>Loading</span>
                                 </span>
                             {else}
-                                <span class="pill pill--offline" title="Disabled — hidden from public lists">Disabled</span>
+                                <span class="pill pill--offline" title="Disabled (hidden from public lists)">Disabled</span>
                             {/if}
                         </header>
 
-                        <dl class="text-xs text-muted" style="margin:0;display:grid;grid-template-columns:auto 1fr;gap:0.25rem 0.5rem">
+                        {*
+                            align-items:center keeps each label/value pair on the
+                            same vertical line. The "Server ID" row's <dd> is a flex
+                            container whose copy button (btn--xs, 1.5rem) makes the
+                            row taller than a single line of text; without centering
+                            the grid, the <dt> label sits top-aligned while the
+                            button-driven <dd> content centres, so the ID reads as
+                            dropped below its label (#1523 follow-up).
+                        *}
+                        <dl class="text-xs text-muted" style="margin:0;display:grid;grid-template-columns:auto 1fr;align-items:center;gap:0.25rem 0.5rem">
+                            {*
+                                Server ID (#1504): the numeric sid the SourceMod
+                                plugin's sourcebans.cfg "ServerID" field needs.
+                                The plugin config + docs both tell operators to
+                                "check the admin panel -> servers" for it, but the
+                                card grid never surfaced it — this labelled,
+                                copyable row is the fix. The copy button rides the
+                                document-level [data-copy] delegate in theme.js
+                                (secure-context clipboard + execCommand fallback).
+                            *}
+                            <dt style="font-weight:500;color:var(--text)">Server ID</dt>
+                            <dd style="margin:0;display:flex;align-items:center;gap:0.25rem" data-testid="server-id">
+                                <span class="font-mono" data-testid="server-id-value">{$server.sid}</span>
+                                <button class="btn btn--ghost btn--icon btn--xs"
+                                        type="button"
+                                        data-copy="{$server.sid}"
+                                        data-testid="server-id-copy"
+                                        title="Copy Server ID"
+                                        aria-label="Copy Server ID">
+                                    <i data-lucide="copy" style="width:12px;height:12px"></i>
+                                </button>
+                            </dd>
                             <dt style="font-weight:500;color:var(--text)">Mod</dt>
                             <dd style="margin:0">{if isset($server.mod_name)}{$server.mod_name|escape}{else}<span class="text-faint">unknown</span>{/if}</dd>
                             <dt style="font-weight:500;color:var(--text)">Players</dt>

@@ -20,7 +20,7 @@
         </div>
     </div>
 {else}
-    <section class="p-6" data-testid="protests-archive-section" style="max-width:1400px">
+    <section class="page-section" data-testid="protests-archive-section" style="padding-top:0.75rem">
         <div class="flex items-center justify-between gap-4 mb-4" style="flex-wrap:wrap">
             <div>
                 <h1 style="font-size:1.5rem;font-weight:600;margin:0">
@@ -69,7 +69,7 @@
                                 <div class="font-medium text-sm truncate" data-testid="protest-archive-row-name">
                                     {if $protest.archiv != 2}
                                         <a class="link"
-                                           href="./index.php?p=banlist{if $protest.authid != ''}&advSearch={$protest.authid|escape:'url'}&advType=steamid{else}&advSearch={$protest.ip|escape:'url'}&advType=ip{/if}"
+                                           href="./index.php?p=banlist&searchText={if $protest.authid != ''}{$protest.authid|escape:'url'}{else}{$protest.ip|escape:'url'}{/if}"
                                            title="Show ban"
                                            onclick="event.stopPropagation();">{$protest.name|escape}</a>
                                     {else}
